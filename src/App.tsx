@@ -8,6 +8,8 @@ import './App.css';
  */
 interface IState {
   data: ServerRespond[],
+  isStreaming: boolean,
+  intervalId?: NodeJS.Timeout,
 }
 
 /**
@@ -19,9 +21,8 @@ class App extends Component<{}, IState> {
     super(props);
 
     this.state = {
-      // data saves the server responds.
-      // We use this state to parse data down to the child element (Graph) as element property
       data: [],
+      isStreaming: false,
     };
   }
 
@@ -29,7 +30,7 @@ class App extends Component<{}, IState> {
    * Render Graph react component with state.data parse as property data
    */
   renderGraph() {
-    return (<Graph data={this.state.data}/>)
+    return (<Graph data={this.state.data} />)
   }
 
   /**
@@ -37,10 +38,37 @@ class App extends Component<{}, IState> {
    */
   getDataFromServer() {
     DataStreamer.getData((serverResponds: ServerRespond[]) => {
-      // Update the state by creating a new array of data that consists of
-      // Previous data in the state and the new data from server
       this.setState({ data: [...this.state.data, ...serverResponds] });
     });
+  }
+
+  /**
+   * Start streaming data from the server
+   */
+  startDataStreaming() {
+    this.setState({ isStreaming: true });
+    const intervalId = setInterval(() => {
+      this.getDataFromServer();
+    }, 100);
+
+    this.setState({ intervalId });
+  }
+
+  /**
+   * Stop streaming data from the server
+   */
+  stopDataStreaming() {
+    if (this.state.intervalId) {
+      clearInterval(this.state.intervalId);
+    }
+    this.setState({ isStreaming: false, intervalId: undefined });
+  }
+
+  /**
+   * Cleanup interval on component unmount
+   */
+  componentWillUnmount() {
+    this.stopDataStreaming();
   }
 
   /**
@@ -54,20 +82,21 @@ class App extends Component<{}, IState> {
         </header>
         <div className="App-content">
           <button className="btn btn-primary Stream-button"
-            // when button is click, our react app tries to request
-            // new data from the server.
-            // As part of your task, update the getDataFromServer() function
-            // to keep requesting the data every 100ms until the app is closed
-            // or the server does not return anymore data.
-            onClick={() => {this.getDataFromServer()}}>
-            Start Streaming Data
+            onClick={() => {
+              if (this.state.isStreaming) {
+                this.stopDataStreaming();
+              } else {
+                this.startDataStreaming();
+              }
+            }}>
+            {this.state.isStreaming ? 'Stop Streaming Data' : 'Start Streaming Data'}
           </button>
           <div className="Graph">
             {this.renderGraph()}
           </div>
         </div>
       </div>
-    )
+    );
   }
 }
 
